@@ -6,18 +6,19 @@ const e = React.createElement;
 class App extends React.Component {
   constructor(props) {
     super(props);
-    this.state = init({ component: this });
+    this.state = init({ msg: ({ f, args }) => { this.update({ f, args }) } });
   }
 
   render() {
-    return view({ model: this.state, component: this })
+    return view({ model: this.state, msg: ({ f, args }) => { this.update({ f, args }) } })
   }
   
-  msg({ f, args }) {
-    console.log(f.name, args)
-    const { model, cmd = none } = f({ model: this.state, args, component: this })
-    this.setState(_log(model))
-    console.log('->', snapshot(model))
+  update({ f, args }) {
+    const { model, cmd = none } = f({ model: this.state, args, msg: ({ f, args }) => { this.update({ f, args }) } })
+    this.setState(model)
+    cmd()
+    // console.log(f.name, args)
+    // console.log('->', snapshot(model))
   }
 }
 
@@ -46,7 +47,7 @@ function snapshot(model) {
 
 
 // Init
-function init({ component }) {
+function init({ msg }) {
   const socket = io('/')
 
 
@@ -57,17 +58,17 @@ function init({ component }) {
     socket.emit('chat', 'hi!')
   })
 
-  socket.on('chat', msg => {
-    console.log('chat: ', msg)
+  socket.on('chat', value => {
+    // console.log('chat: ', value)
     try {
-      const value = JSON.parse(msg)
+      const parsedValue = JSON.parse(value)
 
       const message = {
-        content: '' + value['Msg'],
-        color: parseInt(value['Color'])
+        content: '' + parsedValue['Msg'],
+        color: parseInt(parsedValue['Color'])
       }
 
-      component.msg({ f: gotChat, args: { message }})
+      msg({ f: gotChat, args: { message }})
     }
     catch (e) {
       console.error(e)
@@ -76,15 +77,13 @@ function init({ component }) {
   })
 
 
-  socket.on('board', msg => {
-    // console.log('board: ', msg)
-    const board = JSON.parse(msg)
-    // console.log(board)
-    component.msg({ f: gotBoard, args: { board }})
+  socket.on('board', value => {
+    const board = JSON.parse(value)
+    msg({ f: gotBoard, args: { board }})
   })
 
   window.setTimeout(() => {
-    component.msg({ f: gotTick })
+    msg({ f: gotTick })
   }, 3000)
 
 
@@ -106,20 +105,21 @@ function toggl({ model, args: { x, y }}) {
   return { model }
 }
 
-function gotTick({ model, component }) {
+function gotTick({ model, msg }) {
   model.socket.emit('tick')
 
   window.setTimeout(() => {
-    component.msg({ f: gotTick })
+    msg({ f: gotTick })
   }, 3000)
 
   return { model }
 }
 
-function gotChat({ model, args: { message }, component }) {
+function gotChat({ model, args: { message } }) {
   model.items.push({
     id: uuidv4(),
     content: message.content,
+    socketId: message.socketId,
     color: message.color
   })
 
@@ -131,6 +131,7 @@ function chatInput({ model, args: { value }}) {
 
   return { model }
 }
+
 function chatSubmit({ model }) {
   if (model.newChat) {
     model.socket.emit('chat', model.newChat)
@@ -141,10 +142,10 @@ function chatSubmit({ model }) {
 }
 
 // View
-function view({ model, component }) {
+function view({ model, msg }) {
   if (model.board) {
     return div({}, [
-      viewBoard({ model, board: model.board, component }),
+      viewBoard({ model, board: model.board, msg }),
       div({}, [
         model.items
         .slice(-10)
@@ -153,12 +154,12 @@ function view({ model, component }) {
       form({
         onSubmit: e => {
           e.preventDefault()
-          component.msg({ f: chatSubmit })
+          msg({ f: chatSubmit })
         },
         className: 'flex'
       }, [
         input({
-          onInput: e => component.msg({ f: chatInput, args: { value: e.target.value }}),
+          onInput: e => msg({ f: chatInput, args: { value: e.target.value }}),
           className: 'p-1 shadow',
           value: model.newChat
         }),
@@ -174,17 +175,17 @@ function view({ model, component }) {
   }
 }
 
-function viewBoard({ model, board, component }) {
-  return board.map((line, y) => viewLine({ model, line, y, component }))
+function viewBoard({ model, board, msg }) {
+  return board.map((line, y) => viewLine({ model, line, y, msg }))
 }
 
-function viewLine({ model, line, y, component }) {
+function viewLine({ model, line, y, msg }) {
   return div({
     className: 'flex'
-  }, line.map((cell, x) => viewCell({ model, cell, x, y, component })))
+  }, line.map((cell, x) => viewCell({ model, cell, x, y, msg })))
 }
 
-function viewCell({ model, cell, x, y, component }) {
+function viewCell({ model, cell, x, y, msg }) {
   const style = cell !== -1 ? {
     backgroundColor: `hsl(${cell}, 50%, 50%)`
   } : {}
@@ -192,7 +193,7 @@ function viewCell({ model, cell, x, y, component }) {
   return div({
     style,
     className: `border w-8 h-8`,
-    onClick: () => component.msg({ f: toggl, args: { x, y } } )
+    onClick: () => msg({ f: toggl, args: { x, y } } )
   }, [])
 }
 
