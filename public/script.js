@@ -6,15 +6,15 @@ const e = React.createElement;
 class App extends React.Component {
   constructor(props) {
     super(props);
-    this.state = init({ msg: ({ f, args }) => { this.update({ f, args }) } });
+    this.state = init({ msg: (f, args) => { this.update(f, args) } });
   }
 
   render() {
-    return view({ model: this.state, msg: ({ f, args }) => { this.update({ f, args }) } })
+    return view({ model: this.state, msg: (f, args) => { this.update(f, args) } })
   }
   
-  update({ f, args }) {
-    const { model, cmd = none } = f({ model: this.state, args, msg: ({ f, args }) => { this.update({ f, args }) } })
+  update(f, args) {
+    const { model, cmd = none } = f({ model: this.state, args, msg: (f, args) => { this.update(f, args) } })
     this.setState(model)
     cmd()
     // console.log(f.name, args)
@@ -68,7 +68,7 @@ function init({ msg }) {
         color: parseInt(parsedValue['Color'])
       }
 
-      msg({ f: gotChat, args: { message }})
+      msg(gotChat, { message })
     }
     catch (e) {
       console.error(e)
@@ -79,11 +79,11 @@ function init({ msg }) {
 
   socket.on('board', value => {
     const board = JSON.parse(value)
-    msg({ f: gotBoard, args: { board }})
+    msg(gotBoard, { board })
   })
 
   window.setTimeout(() => {
-    msg({ f: gotTick })
+    msg(gotTick)
   }, 3000)
 
 
@@ -95,12 +95,12 @@ function init({ msg }) {
 }
 
 // Update
-function gotBoard({ model, args: { board }}) {
+function gotBoard({ model, args: { board } }) {
   model.board = board
   return { model }
 }
 
-function toggl({ model, args: { x, y }}) {
+function toggl({ model, args: { x, y } }) {
   model.socket.emit('toggl', JSON.stringify({ x, y }))
   return { model }
 }
@@ -109,7 +109,7 @@ function gotTick({ model, msg }) {
   model.socket.emit('tick')
 
   window.setTimeout(() => {
-    msg({ f: gotTick })
+    msg(gotTick)
   }, 3000)
 
   return { model }
@@ -119,14 +119,13 @@ function gotChat({ model, args: { message } }) {
   model.items.push({
     id: uuidv4(),
     content: message.content,
-    socketId: message.socketId,
     color: message.color
   })
 
   return { model }
 }
 
-function chatInput({ model, args: { value }}) {
+function chatInput({ model, args: { value } }) {
   model.newChat = value
 
   return { model }
@@ -154,12 +153,12 @@ function view({ model, msg }) {
       form({
         onSubmit: e => {
           e.preventDefault()
-          msg({ f: chatSubmit })
+          msg(chatSubmit)
         },
         className: 'flex'
       }, [
         input({
-          onInput: e => msg({ f: chatInput, args: { value: e.target.value }}),
+          onInput: e => msg(chatInput, { value: e.target.value }),
           className: 'p-1 shadow',
           value: model.newChat
         }),
@@ -193,7 +192,7 @@ function viewCell({ model, cell, x, y, msg }) {
   return div({
     style,
     className: `border w-8 h-8`,
-    onClick: () => msg({ f: toggl, args: { x, y } } )
+    onClick: () => msg(toggl, { x, y })
   }, [])
 }
 
