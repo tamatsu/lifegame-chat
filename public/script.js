@@ -64,7 +64,6 @@ function init({ component }) {
 
       const message = {
         content: '' + value['Msg'],
-        socketId: '' + value['SocketID'],
         color: parseInt(value['Color'])
       }
 
@@ -121,7 +120,6 @@ function gotChat({ model, args: { message }, component }) {
   model.items.push({
     id: uuidv4(),
     content: message.content,
-    socketId: message.socketId,
     color: message.color
   })
 

@@ -40,6 +40,18 @@ func jsonEncode(obj interface{}) string {
 	return string(v)
 }
 
+type ChatMsg struct {
+	Msg   string
+	Color int
+}
+
+func chat(user User, msg string) ChatMsg {
+	return ChatMsg{
+		Msg:   msg,
+		Color: hashToInt(user),
+	}
+}
+
 func main() {
 	server, _ := socketio.NewServer(nil)
 	userDict := make(map[string]User)
@@ -68,18 +80,9 @@ func main() {
 
 	server.OnEvent("/", chatEventName, func(s socketio.Conn, msg string) {
 		user := userDict[s.ID()]
+		m := chat(user, msg)
 
-		type Message struct {
-			SocketID string
-			Msg      string
-			Color    int
-		}
-
-		server.BroadcastToRoom("/", roomName, chatEventName, jsonEncode(Message{
-			SocketID: s.ID(),
-			Msg:      msg,
-			Color:    hashToInt(user),
-		}))
+		server.BroadcastToRoom("/", roomName, chatEventName, jsonEncode(m))
 	})
 
 	server.OnEvent("/", "tick", func(s socketio.Conn) {
@@ -100,10 +103,9 @@ func main() {
 		json.Unmarshal([]byte(msg), &cmd)
 
 		if cmd.X >= 0 && cmd.X < sizeX && cmd.Y >= 0 && cmd.Y < sizeY {
-			cell := board[cmd.Y][cmd.X]
 			color := hashToInt(user)
 
-			if cell == -1 { // is Dead
+			if board[cmd.Y][cmd.X] == -1 { // is Dead
 				board[cmd.Y][cmd.X] = color
 			} else {
 				board[cmd.Y][cmd.X] = -1 // Die
