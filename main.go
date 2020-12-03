@@ -52,6 +52,26 @@ func chat(user User, msg string) ChatMsg {
 	}
 }
 
+type TogglCmd struct {
+	X int
+	Y int
+}
+
+func toggl(user User, board Board, cmd TogglCmd) Board {
+	if cmd.X >= 0 && cmd.X < sizeX && cmd.Y >= 0 && cmd.Y < sizeY {
+		color := hashToInt(user)
+
+		if board[cmd.Y][cmd.X] == -1 { // is Dead
+			board[cmd.Y][cmd.X] = color
+		} else {
+			board[cmd.Y][cmd.X] = -1 // Die
+		}
+
+	}
+
+	return board
+}
+
 func main() {
 	server, _ := socketio.NewServer(nil)
 	userDict := make(map[string]User)
@@ -94,28 +114,12 @@ func main() {
 	server.OnEvent("/", "toggl", func(s socketio.Conn, msg string) {
 		user := userDict[s.ID()]
 
-		type UserCommand struct {
-			X int
-			Y int
-		}
-
-		var cmd UserCommand
+		var cmd TogglCmd
 		json.Unmarshal([]byte(msg), &cmd)
 
-		if cmd.X >= 0 && cmd.X < sizeX && cmd.Y >= 0 && cmd.Y < sizeY {
-			color := hashToInt(user)
+		board = toggl(user, board, cmd)
 
-			if board[cmd.Y][cmd.X] == -1 { // is Dead
-				board[cmd.Y][cmd.X] = color
-			} else {
-				board[cmd.Y][cmd.X] = -1 // Die
-			}
-
-			server.BroadcastToRoom("/", roomName, boardEventName, jsonEncode(board))
-
-		} else {
-			log.Println("Invalid toggl command", cmd)
-		}
+		server.BroadcastToRoom("/", roomName, boardEventName, jsonEncode(board))
 	})
 
 	server.OnError("/", func(s socketio.Conn, e error) {
