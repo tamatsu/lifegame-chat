@@ -2,86 +2,77 @@ package main
 
 const sizex = 9
 const sizey = 9
-type Board [sizex][sizey]int
+
+type Board [sizey][sizex]int
 
 func Transition(b Board) Board {
 	c := Board{}
-	
+
 	for y, line := range b {
 		for x, _ := range line {
-			c[x][y] = CellNext(b, x, y)
+			c[y][x] = getNextCell(b, x, y)
 		}
 	}
-		
+
 	return c
 }
 
-func CellNext(b Board, x int, y int) int {
-	neighbor := [8]int{
+func getNextCell(b Board, x int, y int) int {
+	neighbours := [8]int{
 		get(b, x-1, y-1),
 		get(b, x, y-1),
 		get(b, x+1, y-1),
-		
+
 		get(b, x-1, y),
 		get(b, x+1, y),
-		
+
 		get(b, x-1, y+1),
 		get(b, x, y+1),
 		get(b, x+1, y+1),
 	}
-	
-  bucket := make(map[int]int)
-	sum := 0
-  mode := -1
-	for _, n := range neighbor {
-    if (n >= 0) {
-      sum += 1
-      if (mode != -1) {
-        mode = (mode + n) / 2 
-      } else {
-        mode = n
-      }
-    }
 
-    bucket[n]++
+	num := 0
+	mode := -1
+	for _, n := range neighbours {
+		if n >= 0 {
+			num += 1
+			if mode != -1 {
+				mode = (mode + n) / 2
+			} else {
+				mode = n
+			}
+		}
 	}
 
-  // mode := -1
-  // for key, n := range bucket {
-  //   if (n > mode) {
-  //     mode = key
-  //   }
-  // }
-
-	
-	if (b[x][y] == -1) {
-		if (sum == 3) {
+	cellIsDead := (b[y][x] == -1)
+	if cellIsDead {
+		if num == 3 {
 			// Birth
 			return mode
 		} else {
-			// Nothing
+			// Death
 			return -1
 		}
 	} else {
-		if (sum <= 1) {
+		if num <= 1 {
 			// Death
 			return -1
-		} else if (sum == 2 || sum == 3) {
+		} else if num == 2 || num == 3 {
 			// Survive
 			return mode
-		} else if (sum >= 4) {
+		} else if num >= 4 {
 			// Death
 			return -1
 		}
 	}
-	
+
 	return -1 // unexpected state
 }
-		
+
 func get(b Board, x int, y int) int {
-	if (x < 0 || x >= sizex || y < 0 || y >= sizey) {
+	if x < 0 || x >= sizex || y < 0 || y >= sizey {
 		return -1
 	} else {
-		return b[x][y]
+		return b[y][x]
 	}
 }

@@ -1,184 +1,141 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-  "encoding/json"
-  "os"
+	"os"
 
-	"github.com/googollee/go-socket.io"
-  "github.com/google/uuid"
+	"github.com/google/uuid"
+	socketio "github.com/googollee/go-socket.io"
 )
 
+const sizeX = 9
+const sizeY = 9
+const roomName = "chatRoom"
+const chatEventName = "chat"
+const boardEventName = "board"
 
-type User uuid.UUID
+type User = uuid.UUID
 
-type Message struct {
-  SocketID string
-  Msg string
-  Color int
+func hashToInt(user User) int {
+	const a = 57
+	const mod = 997
+
+	current := 57
+	for _, byte := range user {
+		current = (current*int(byte) + a) % mod
+	}
+
+	return current % 360
 }
 
-const chatroom = "chatroom" // Room name
+func jsonEncode(obj interface{}) string {
+	v, err := json.Marshal(obj)
+	if err != nil {
+		fmt.Println(err)
+	}
 
-func hash(user uuid.UUID) int {
-  current := 57
-
-  for _, b := range user {
-    n := int(b) + 1
-    current = (current * n) % 575757 + 57
-  }
-
-  return current % 360
-}
-
-func _log(v interface{}) interface{} {
-  fmt.Println(v)
-  return v
-}
-
-func emitBoard(board Board, s socketio.Conn) {
-  v, err := json.Marshal(board)
-  if err != nil {
-    fmt.Println(err)
-  }
-
-  s.Emit("board", string(v))
-}
-
-func broadCastBoard(board Board, server* socketio.Server) {
-  v, err := json.Marshal(board)
-  if err != nil {
-    fmt.Println(err)
-  }
-  // _log(string(v))
-  server.BroadcastToRoom("/", chatroom, "board", string(v))
-}
-
-func encode(obj interface{}) string {
-  v, err := json.Marshal(obj)
-  if err != nil {
-    fmt.Println(err)
-  }
-
-  return string(v)
+	return string(v)
 }
 
 func main() {
-
-  userDict := make(map[string]uuid.UUID)
-
 	server, _ := socketio.NewServer(nil)
+	userDict := make(map[string]User)
+	board := Board{
+		{-1, -1, -1, -1, -1, -1, -1, -1, -1},
+		{-1, -1, -1, -1, -1, -1, -1, -1, -1},
+		{-1, -1, -1, -1, -1, -1, -1, -1, -1},
+		{-1, -1, -1, -1, -1, -1, -1, -1, -1},
+		{-1, -1, -1, -1, -1, -1, -1, -1, -1},
+		{-1, -1, -1, -1, -1, -1, -1, -1, -1},
+		{-1, -1, -1, -1, -1, -1, -1, -1, -1},
+		{-1, -1, -1, -1, -1, -1, -1, -1, -1},
+		{-1, -1, -1, -1, -1, -1, -1, -1, -1},
+	}
 
-  board := Board{
-    { -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-    { -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-    { -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-    { -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-    { -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-    { -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-    { -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-    { -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-    { -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-  }
-	
 	server.OnConnect("/", func(s socketio.Conn) error {
-		fmt.Println("connected:", s.ID())
+		server.JoinRoom("/", roomName, s)
 
-    u, _ := uuid.NewRandom()
-    userDict[s.ID()] = u
-    fmt.Println("Users:", userDict)
+		newID, _ := uuid.NewRandom()
+		userDict[s.ID()] = newID
 
-    server.JoinRoom("/", chatroom, s)
-
-    emitBoard(board, s)
+		s.Emit(boardEventName, jsonEncode(board))
 
 		return nil // no error
 	})
 
-  server.OnEvent("/", "chat", func(s socketio.Conn, msg string) {
-    fmt.Println("chat:", msg)
+	server.OnEvent("/", chatEventName, func(s socketio.Conn, msg string) {
+		user := userDict[s.ID()]
 
-    fmt.Println("rooms", server.Rooms("/"))
-    fmt.Println("roomlen", server.RoomLen("/", chatroom))
+		type Message struct {
+			SocketID string
+			Msg      string
+			Color    int
+		}
 
-    user := userDict[s.ID()]
-    _log(user)
-
-    m := Message{
-      SocketID: s.ID(),
-      Msg: msg,
-      Color: hash(user),
-    }
-
-    _log(m)
-    server.BroadcastToRoom("/", chatroom, "chat", encode(m))
-  })
-
-  server.OnEvent("/", "tick", func(s socketio.Conn) {
-    fmt.Println("tick: ")
-
-    board = Transition(board)
-
-    // for _, l := range board {
-    //   fmt.Println(l)
-    // }
-
-    broadCastBoard(board, server)
-  })
-
-  server.OnEvent("/", "toggl", func(s socketio.Conn, msg string) {
-    fmt.Println("toggl:")
-
-    user := userDict[s.ID()]
-
-    type Command struct {
-      X int
-      Y int
-    }
-
-    var cmd Command
-    _log(msg)
-    json.Unmarshal([]byte(msg), &cmd)
-    fmt.Println(cmd)
-
-    cell := board[cmd.Y][cmd.X]
-    if (cell == -1) { // Dead
-      board[cmd.Y][cmd.X] = hash(user)
-    } else {
-      board[cmd.Y][cmd.X] = -1
-    }
-
-    broadCastBoard(board, server)
-
-  })
-
-	server.OnError("/", func(s socketio.Conn, e error) {
-		fmt.Println("error:", e)
+		server.BroadcastToRoom("/", roomName, chatEventName, jsonEncode(Message{
+			SocketID: s.ID(),
+			Msg:      msg,
+			Color:    hashToInt(user),
+		}))
 	})
 
-	server.OnDisconnect("/", func(s socketio.Conn, reason string) {
-		fmt.Println("disconnect: ", reason)
+	server.OnEvent("/", "tick", func(s socketio.Conn) {
+		board = Transition(board)
+
+		server.BroadcastToRoom("/", roomName, boardEventName, jsonEncode(board))
+	})
+
+	server.OnEvent("/", "toggl", func(s socketio.Conn, msg string) {
+		user := userDict[s.ID()]
+
+		type UserCommand struct {
+			X int
+			Y int
+		}
+
+		var cmd UserCommand
+		json.Unmarshal([]byte(msg), &cmd)
+
+		if cmd.X >= 0 && cmd.X < sizeX && cmd.Y >= 0 && cmd.Y < sizeY {
+			cell := board[cmd.Y][cmd.X]
+			color := hashToInt(user)
+
+			if cell == -1 { // is Dead
+				board[cmd.Y][cmd.X] = color
+			} else {
+				board[cmd.Y][cmd.X] = -1 // Die
+			}
+
+			server.BroadcastToRoom("/", roomName, boardEventName, jsonEncode(board))
+
+		} else {
+			log.Println("Invalid toggl command", cmd)
+		}
+	})
+
+	server.OnError("/", func(s socketio.Conn, e error) {
+		log.Println("error:", e)
+	})
+
+	server.OnDisconnect("/", func(s socketio.Conn, msg string) {
+		log.Println("disconnect: ", msg)
 	})
 
 	go server.Serve()
 
-
-
 	defer server.Close()
 
-  port := os.Getenv("PORT")
-  if (port == "") {
-    port = "8000"
-  }
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8000"
+	}
 
 	http.Handle("/socket.io/", server)
 	http.Handle("/", http.FileServer(http.Dir("./public")))
-	log.Println("Serving at localhost:" + port + "...")
-	log.Fatal(http.ListenAndServe(":" + port , nil))
-
-
+	log.Println("Your app is listening port:" + port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 
 }
-
