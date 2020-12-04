@@ -1,8 +1,6 @@
 import { init, view } from './App.js'
 
 // React framework
-'use strict';
-
 const e = React.createElement;
       
 class App extends React.Component {
