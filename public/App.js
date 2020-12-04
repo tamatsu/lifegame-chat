@@ -118,7 +118,7 @@ function view({ model, msg }) {
           value: model.newChat
         }),
         button({
-          className: 'rounded p-2 bg-green-200 shadow'
+          className: 'rounded p-2 shadow'
         }, [ text('+') ])
       ])
 
@@ -155,8 +155,19 @@ function viewItem({ model, item }) {
   return div({
     style: {
       color: `hsl(${item.color}, 50%, 30%)`
-    }
+    },
+    className: 'flex'
   }, [
+    div({
+      className: 'flex flex-col justify-center'
+    }, [
+      div({
+        style: {
+          backgroundColor: `hsl(${item.color}, 50%, 50%)`
+        },
+        className: 'w-4 h-4 mr-1'
+      }, [])
+    ]),
     text(item.content)
   ])
 }
