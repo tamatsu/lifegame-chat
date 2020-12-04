@@ -2,7 +2,9 @@ export { init, view }
 
 // Init
 function init({ msg }) {
-  const socket = io('/')
+  const socket = io('/', {
+    transports: [ 'websocket' ]
+  })
 
   socket.on('connect', () => {
     console.log('connected')
