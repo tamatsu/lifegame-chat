@@ -6,19 +6,23 @@ const e = React.createElement;
 class App extends React.Component {
   constructor(props) {
     super(props);
-    this.state = init({ msg: (f, args) => { this.update(f, args) } });
+    this.state = init({ msg: this.makeMsg() });
   }
 
   render() {
-    return view({ model: this.state, msg: (f, args) => { this.update(f, args) } })
+    return view({ model: this.state, msg: this.makeMsg() })
   }
   
   update(f, args) {
-    const { model, cmd = none } = f({ model: this.state, args, msg: (f, args) => { this.update(f, args) } })
+    const { model, cmd = none } = f({ model: this.state, args, msg: this.makeMsg() })
     this.setState(model)
     cmd()
     // console.log(f.name, args)
     // console.log('->', snapshot(model))
+  }
+
+  makeMsg() {
+    return (f, args) => { this.update(f, args) }
   }
 }
 
