@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 	socketio "github.com/googollee/go-socket.io"
@@ -16,6 +17,7 @@ const sizeY = 9
 const roomName = "chatRoom"
 const chatEventName = "chat"
 const boardEventName = "board"
+const clockIntervalMilliseconds = 3000
 
 type User = uuid.UUID
 
@@ -72,6 +74,15 @@ func toggl(user User, board Board, cmd TogglCmd) Board {
 	return board
 }
 
+func clock(a time.Time) (bool, time.Time) {
+	b := time.Now()
+	if b.Sub(a).Milliseconds() >= clockIntervalMilliseconds {
+		return true, b
+	}
+
+	return false, a
+}
+
 func main() {
 	server, _ := socketio.NewServer(nil)
 	userDict := make(map[string]User)
@@ -86,6 +97,7 @@ func main() {
 		{-1, -1, -1, -1, -1, -1, -1, -1, -1},
 		{-1, -1, -1, -1, -1, -1, -1, -1, -1},
 	}
+	lastTime := time.Now()
 
 	server.OnConnect("/", func(s socketio.Conn) error {
 		server.JoinRoom("/", roomName, s)
@@ -106,9 +118,14 @@ func main() {
 	})
 
 	server.OnEvent("/", "tick", func(s socketio.Conn) {
-		board = Transition(board)
+		var b bool
+		b, lastTime = clock(lastTime)
 
-		server.BroadcastToRoom("/", roomName, boardEventName, jsonEncode(board))
+		if b {
+			board = Transition(board)
+
+			server.BroadcastToRoom("/", roomName, boardEventName, jsonEncode(board))
+		}
 	})
 
 	server.OnEvent("/", "toggl", func(s socketio.Conn, msg string) {
