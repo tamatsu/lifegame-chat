@@ -3,7 +3,7 @@ Chat application with [Conway's Game of Life](https://en.wikipedia.org/wiki/Conw
 
 ### Getting Started
 ```
-$ go run main.go board.go
+$ go run main.go board.go app.go
 ```
 
 ### Demonstration
