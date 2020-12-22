@@ -102,7 +102,7 @@ function view({ model, msg }) {
       viewBoard({ model, board: model.board, msg }),
       div({}, [
         model.items
-        .slice(-10)
+        .slice(-3)
         .map(item => viewItem({ model, item }))
       ]),
       form({
@@ -156,7 +156,7 @@ function viewItem({ model, item }) {
     style: {
       color: `hsl(${item.color}, 50%, 30%)`
     },
-    className: 'flex'
+    className: 'flex text-xl'
   }, [
     div({
       className: 'flex flex-col justify-center'
